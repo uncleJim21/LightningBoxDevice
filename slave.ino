@@ -1,59 +1,60 @@
-// WireSlave Receiver
-// by Gutierrez PS <https://github.com/gutierrezps>
-// ESP32 I2C slave library: <https://github.com/gutierrezps/ESP32_I2C_Slave>
-// based on the example by Nicholas Zambetti <http://www.zambetti.com>
+#include <Wire.h>
 
-// Demonstrates use of the WireSlave library for ESP32.
-// Receives data as an I2C/TWI slave device; data must
-// be packed using WirePacker.
-// Refer to the "master_writer" example for use with this
-// fuck arduino IDE
+#define TM1650_ADDRESS 0x24
 
-#include <Arduino.h>
-#include <c:\Users\jimca\Documents\Arduino\libraries\I2C Related/Wire.h>
-#include <c:\Users\jimca\Documents\Arduino\libraries\I2C Related/WireSlave.h>
+#define LED_ADDRESS 0x34
+#define DATA_ADDRESS 0x7C
 
-#define SDA_PIN 21
-#define SCL_PIN 22
-#define I2C_SLAVE_ADDR 0x24
-
-void receiveEvent(int howMany);
-
-void setup()
-{
-    Serial.begin(115200);
-
-    bool success = WireSlave.begin(SDA_PIN, SCL_PIN, I2C_SLAVE_ADDR);
-    if (!success) {
-        Serial.println("I2C slave init failed");
-        while(1) delay(100);
-    }
-
-    WireSlave.onReceive(receiveEvent);
+void setup() {
+  Wire.begin(21, 22); // Initialize I2C communication with SDA on GPIO 21 and SCL on GPIO 22
+  Serial.begin(9600);
+  // Wire.onReceive(receiveEvent); // register receive event
+  // Initialize the TM1650 display
+  // Wire.beginTransmission(TM1650_ADDRESS);
+  // Wire.write(0x8F); // Turn on the display
+  // Wire.endTransmission();
 }
 
-void loop()
-{
-    // the slave response time is directly related to how often
-    // this update() method is called, so avoid using long delays
-    // inside loop(), and be careful with time-consuming tasks
-    WireSlave.update();
+void loop() {
+  // Read the data meant for TM1650 display
+  Wire.requestFrom(TM1650_ADDRESS, 1);
+  // if (Wire.available()) {
+  //   byte receivedData = Wire.read();
+  //   // Print the received data to the console
+  //   Serial.println(receivedData, HEX);
 
-    // let I2C and other ESP32 peripherals interrupts work
-    delay(1);
-}
+  int count = 0;
+  byte address = 0;
+  byte data = 0;
 
-// function that executes whenever a complete and valid packet
-// is received from master
-// this function is registered as an event, see setup()
-void receiveEvent(int howMany)
-{
-    while (1 < WireSlave.available()) // loop through all but the last byte
-    {
-        char c = WireSlave.read();  // receive byte as a character
-        Serial.print(c);            // print the character
+  while (Wire.available()) { 
+    byte received = Wire.read(); 
+    Serial.println(received, HEX);
+
+    if (count == 0) {
+      address = received;
+      Serial.print("Address received: ");
+      Serial.println(address, HEX);
     }
+    else if (count == 1) {
+      data = received;
+      Serial.print("Data received: ");
+      Serial.println(data, HEX);
+    }
+    count++;
+  }
 
-    int x = WireSlave.read();   // receive byte as an integer
-    Serial.println(x);          // print the integer
+  // If the received address is the LED_ADDRESS, print the received data
+  if (address == LED_ADDRESS) {
+    Serial.print("LED data: ");
+    Serial.println(data, BIN);
+  }
+
+  // If the received address is the DATA_ADDRESS, print the received data
+  if (address == DATA_ADDRESS) {
+    Serial.print("LED address: ");
+    Serial.println(data, HEX);
+  }
+
+  delay(100); // Adjust the delay based on your requirements
 }
