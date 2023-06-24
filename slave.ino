@@ -2,6 +2,7 @@
 
 const int ADDR = 0x34;
 int INDEX = 0;
+char digits[] = {'0','0','0','0'};
 
 void setup() {
   Serial.begin(115200);
@@ -14,6 +15,11 @@ void loop() {
   INDEX++;
   delay(100);
   Wire.end();
+  Serial.println("Current Total:");
+  Serial.print(digits[3]);
+  Serial.print(digits[1]);
+  Serial.print(digits[2]);
+  Serial.print(digits[0]);
 }
 
 char lookupTable(uint8_t input) {
@@ -35,10 +41,16 @@ void receiveEvent(int numBytes) {
   while (Wire.available()) {
     byte receivedData = Wire.read();
     // Print the received data to the console
+    const int currentAddr = INDEX + ADDR;
+
+    char decodedData = lookupTable(receivedData);
     Serial.print("Received on ");
-    Serial.print(INDEX + ADDR);
+    Serial.print(currentAddr);
     Serial.print(": ");
-    Serial.println(lookupTable(receivedData));
+    Serial.println(decodedData);
+    Serial.println();
+
+    digits[INDEX] = decodedData;
   }
 }
 
