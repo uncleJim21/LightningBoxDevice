@@ -17,9 +17,9 @@ void loop() {
   Wire.end();
   Serial.println("Current Total:");
   Serial.print(digits[3]);
-  Serial.print(digits[1]);
   Serial.print(digits[2]);
   Serial.print(digits[0]);
+  Serial.print(digits[1]);
 }
 
 char lookupTable(uint8_t input) {
@@ -50,7 +50,11 @@ void receiveEvent(int numBytes) {
     Serial.println(decodedData);
     Serial.println();
 
-    digits[INDEX] = decodedData;
+    if(INDEX <= 3 && INDEX >0){
+      digits[INDEX] = decodedData;
+    }
+
+    //digits[INDEX] = decodedData;
   }
 }
 
