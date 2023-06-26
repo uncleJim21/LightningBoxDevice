@@ -16,10 +16,11 @@ void loop() {
   delay(100);
   Wire.end();
   Serial.println("Current Total:");
+  Serial.println();
   Serial.print(digits[3]);
+  Serial.print(digits[1]);
   Serial.print(digits[2]);
   Serial.print(digits[0]);
-  Serial.print(digits[1]);
 }
 
 char lookupTable(uint8_t input) {
@@ -44,14 +45,20 @@ void receiveEvent(int numBytes) {
     const int currentAddr = INDEX + ADDR;
 
     char decodedData = lookupTable(receivedData);
-    Serial.print("Received on ");
-    Serial.print(currentAddr);
-    Serial.print(": ");
-    Serial.println(decodedData);
-    Serial.println();
+    bool debug = false;//flip to enable/disable verbose prints
+    if(debug){
+      Serial.print("Received on ");
+      Serial.print(currentAddr);
+      Serial.print(": ");
+      Serial.println(decodedData);
+      Serial.println();
+      
+      Serial.println(INDEX <= 3);
+      Serial.println(INDEX);
+    }
 
-    if(INDEX <= 3 && INDEX >0){
-      digits[INDEX] = decodedData;
+    if(currentAddr <= 56 && currentAddr >= 53){
+      digits[currentAddr - 53] = decodedData;
     }
 
     //digits[INDEX] = decodedData;
