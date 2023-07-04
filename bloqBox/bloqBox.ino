@@ -1,11 +1,33 @@
 #include <Wire.h>
+#include <WiFi.h>
+//#include <HttpClient.h>
+
 
 const int ADDR = 0x34;
 int INDEX = 0;
 char digits[] = {'0','0','0','0'};
 
+const char* ssid = "The Misfits";
+const char* password = "";
+
+
 void setup() {
   Serial.begin(115200);
+  configWifi();
+}
+
+void configWifi(){
+  Serial.print("Connecting to WiFi...");
+  WiFi.begin(ssid, password);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println();
+  Serial.print("Connected to WiFi. IP Address: ");
+  Serial.println(WiFi.localIP());
 }
 
 void loop() {
