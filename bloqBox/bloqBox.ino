@@ -1,6 +1,6 @@
 #include <Wire.h>
 #include <WiFi.h>
-//#include <HttpClient.h>
+#include <HttpClient.h>
 
 
 const int ADDR = 0x34;
@@ -10,10 +10,34 @@ char digits[] = {'0','0','0','0'};
 const char* ssid = "The Misfits";
 const char* password = "";
 
+const char* serverAddress = "google.com";//"https://postman-echo.com/get";
+const int serverPort = 80;
+
+WiFiClient wifiClient;
+HttpClient httpClient(wifiClient, serverAddress, serverPort);
 
 void setup() {
   Serial.begin(115200);
   configWifi();
+
+  performHttpGetRequest();
+  printResponse();
+}
+
+void printResponse() {
+  int statusCode = httpClient.responseStatusCode();
+  String responseBody = httpClient.responseBody();
+
+  Serial.print("Response Status Code: ");
+  Serial.println(statusCode);
+
+  Serial.print("Response Body: ");
+  Serial.println(responseBody);
+}
+
+
+void performHttpGetRequest() {
+  httpClient.get("/");
 }
 
 void configWifi(){
@@ -31,18 +55,27 @@ void configWifi(){
 }
 
 void loop() {
-  INDEX = INDEX % 4;
-  Wire.begin(INDEX + ADDR);  // Initialize I2C communication as a slave with address 0x50
-  Wire.onReceive(receiveEvent);
-  INDEX++;
-  delay(100);
-  Wire.end();
-  Serial.println("Current Total:");
-  Serial.println();
-  Serial.print(digits[3]);
-  Serial.print(digits[1]);
-  Serial.print(digits[2]);
-  Serial.print(digits[0]);
+  // INDEX = INDEX % 4;
+  // Wire.begin(INDEX + ADDR);  // Initialize I2C communication as a slave with address 0x50
+  // Wire.onReceive(receiveEvent);
+  // INDEX++;
+  // delay(100);
+  // Wire.end();
+  // Serial.println("Current Total:");
+  // Serial.println();
+  // Serial.print(digits[3]);
+  // Serial.print(digits[1]);
+  // Serial.print(digits[2]);
+  // Serial.print(digits[0]);
+  
+  httpClient.get("/");
+  while (httpClient.available()) {
+    char c = httpClient.read();
+    Serial.print(c);
+  }
+
+  delay(5000);
+  
 }
 
 char lookupTable(uint8_t input) {
