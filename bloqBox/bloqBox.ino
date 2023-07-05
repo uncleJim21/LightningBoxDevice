@@ -1,122 +1,81 @@
-#include <Wire.h>
+/*
+  Rui Santos
+  Complete project details at Complete project details at https://RandomNerdTutorials.com/esp32-http-get-post-arduino/
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files.
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+*/
+
 #include <WiFi.h>
-#include <HttpClient.h>
-
-
-const int ADDR = 0x34;
-int INDEX = 0;
-char digits[] = {'0','0','0','0'};
+#include <HTTPClient.h>
 
 const char* ssid = "The Misfits";
 const char* password = "";
 
-const char* serverAddress = "google.com";//"https://postman-echo.com/get";
-const int serverPort = 80;
+//Your Domain name with URL path or IP address with path
+String serverName = "https://api.ipify.org";
 
-WiFiClient wifiClient;
-HttpClient httpClient(wifiClient, serverAddress, serverPort);
+// the following variables are unsigned longs because the time, measured in
+// milliseconds, will quickly become a bigger number than can be stored in an int.
+unsigned long lastTime = 0;
+// Timer set to 10 minutes (600000)
+//unsigned long timerDelay = 600000;
+// Set timer to 5 seconds (5000)
+unsigned long timerDelay = 5000;
 
 void setup() {
-  Serial.begin(115200);
-  configWifi();
+  Serial.begin(115200); 
 
-  performHttpGetRequest();
-  printResponse();
-}
-
-void printResponse() {
-  int statusCode = httpClient.responseStatusCode();
-  String responseBody = httpClient.responseBody();
-
-  Serial.print("Response Status Code: ");
-  Serial.println(statusCode);
-
-  Serial.print("Response Body: ");
-  Serial.println(responseBody);
-}
-
-
-void performHttpGetRequest() {
-  httpClient.get("/");
-}
-
-void configWifi(){
-  Serial.print("Connecting to WiFi...");
   WiFi.begin(ssid, password);
-
-  while (WiFi.status() != WL_CONNECTED) {
+  Serial.println("Connecting");
+  while(WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
-
-  Serial.println();
-  Serial.print("Connected to WiFi. IP Address: ");
+  Serial.println("");
+  Serial.print("Connected to WiFi network with IP Address: ");
   Serial.println(WiFi.localIP());
+ 
+  Serial.println("Timer set to 5 seconds (timerDelay variable), it will take 5 seconds before publishing the first reading.");
 }
 
 void loop() {
-  // INDEX = INDEX % 4;
-  // Wire.begin(INDEX + ADDR);  // Initialize I2C communication as a slave with address 0x50
-  // Wire.onReceive(receiveEvent);
-  // INDEX++;
-  // delay(100);
-  // Wire.end();
-  // Serial.println("Current Total:");
-  // Serial.println();
-  // Serial.print(digits[3]);
-  // Serial.print(digits[1]);
-  // Serial.print(digits[2]);
-  // Serial.print(digits[0]);
-  
-  httpClient.get("/");
-  while (httpClient.available()) {
-    char c = httpClient.read();
-    Serial.print(c);
-  }
+  //Send an HTTP POST request every 10 minutes
+  if ((millis() - lastTime) > timerDelay) {
+    //Check WiFi connection status
+    if(WiFi.status()== WL_CONNECTED){
+      HTTPClient http;
 
-  delay(5000);
-  
-}
-
-char lookupTable(uint8_t input) {
-  // Define the lookup table
-  const uint8_t inputValues[] = {0xD7, 0x11, 0xCD, 0x5D, 0x1B, 0x5E, 0xDE, 0x15, 0xDF, 0x5F};
-  const char outputValues[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9'};
-  const uint8_t tableSize = sizeof(inputValues) / sizeof(inputValues[0]);
-  // Find the index of the input value in the lookup table
-  for (uint8_t i = 0; i < tableSize; i++) {
-    if (input == inputValues[i]) {
-      return outputValues[i];
-    }
-  }
-  // Return a default value if the input value is not found
-  return '-';
-}
-
-void receiveEvent(int numBytes) {
-  while (Wire.available()) {
-    byte receivedData = Wire.read();
-    // Print the received data to the console
-    const int currentAddr = INDEX + ADDR;
-
-    char decodedData = lookupTable(receivedData);
-    bool debug = false;//flip to enable/disable verbose prints
-    if(debug){
-      Serial.print("Received on ");
-      Serial.print(currentAddr);
-      Serial.print(": ");
-      Serial.println(decodedData);
-      Serial.println();
+      String serverPath = serverName;
       
-      Serial.println(INDEX <= 3);
-      Serial.println(INDEX);
+      // Your Domain name with URL path or IP address with path
+      http.begin(serverPath.c_str());
+      
+      // If you need Node-RED/server authentication, insert user and password below
+      //http.setAuthorization("REPLACE_WITH_SERVER_USERNAME", "REPLACE_WITH_SERVER_PASSWORD");
+      
+      // Send HTTP GET request
+      int httpResponseCode = http.GET();
+      
+      if (httpResponseCode>0) {
+        Serial.print("HTTP Response code: ");
+        Serial.println(httpResponseCode);
+        String payload = http.getString();
+        Serial.println(payload);
+      }
+      else {
+        Serial.print("Error code: ");
+        Serial.println(httpResponseCode);
+      }
+      // Free resources
+      http.end();
     }
-
-    if(currentAddr <= 56 && currentAddr >= 53){
-      digits[currentAddr - 53] = decodedData;
+    else {
+      Serial.println("WiFi Disconnected");
     }
-
-    //digits[INDEX] = decodedData;
+    lastTime = millis();
   }
 }
-
