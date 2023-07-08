@@ -13,6 +13,8 @@ const char* password = "";
 //Your Domain name with URL path or IP address with path
 String serverName = "https://api.ipify.org";
 
+String getSessionEndpoint = "https://lightning-box.vercel.app/api/session/get";
+
 // the following variables are unsigned longs because the time, measured in
 // milliseconds, will quickly become a bigger number than can be stored in an int.
 unsigned long lastTime = 0;
@@ -59,11 +61,44 @@ void loop() {
   // Serial.print(digits[0]);
   
   if ((millis() - lastTime) > timerDelay) {
-    makeHeartbeatRequest();
+    getSession();
   }
 
   delay(5000);
   
+}
+
+    if(WiFi.status()== WL_CONNECTED){
+      HTTPClient http;
+
+      String serverPath = getSessionEndpoint;
+      
+      // Your Domain name with URL path or IP address with path
+      http.begin(serverPath.c_str());
+
+      // Send HTTP GET request
+      int httpResponseCode = http.GET();
+      
+      if (httpResponseCode>0) {
+        Serial.print("getSession HTTP Response code: ");
+        Serial.println(httpResponseCode);
+        String payload = http.getString();
+        Serial.println(payload);
+        if(httpResponseCode == 200){
+          makeHeartbeatRequest();
+        }
+      }
+      else {
+        Serial.print("Error code: ");
+        Serial.println(httpResponseCode);
+      }
+      // Free resources
+      http.end();
+    }
+    else {
+      Serial.println("WiFi Disconnected");
+    }
+    lastTime = millis();
 }
 
 void makeHeartbeatRequest(){
@@ -76,14 +111,17 @@ void makeHeartbeatRequest(){
       // Your Domain name with URL path or IP address with path
       http.begin(serverPath.c_str());
       
-      // If you need Node-RED/server authentication, insert user and password below
-      //http.setAuthorization("REPLACE_WITH_SERVER_USERNAME", "REPLACE_WITH_SERVER_PASSWORD");
-      
-      // Send HTTP GET request
-      int httpResponseCode = http.GET();
+      // Specify content-type header
+      http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+
+      // Data to send with HTTP POST
+      String httpRequestData = "cuckBucks=69&message=Hello_World";
+
+      // Send HTTP POST request
+      int httpResponseCode = http.POST(httpRequestData);
       
       if (httpResponseCode>0) {
-        Serial.print("HTTP Response code: ");
+        Serial.print("makeHeartbeatRequest HTTP Response code: ");
         Serial.println(httpResponseCode);
         String payload = http.getString();
         Serial.println(payload);
