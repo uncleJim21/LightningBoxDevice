@@ -11,9 +11,11 @@ const char* ssid = "The Misfits";
 const char* password = "";
 
 //Your Domain name with URL path or IP address with path
-String serverName = "https://api.ipify.org";
-
+//String serverName = "https://api.ipify.org";
+String updateBoxParamsEndpoint = "https://lightning-box.vercel.app/api/session/set";
 String getSessionEndpoint = "https://lightning-box.vercel.app/api/session/get";
+
+bool hasValidSession = false;
 
 // the following variables are unsigned longs because the time, measured in
 // milliseconds, will quickly become a bigger number than can be stored in an int.
@@ -61,13 +63,15 @@ void loop() {
   // Serial.print(digits[0]);
   
   if ((millis() - lastTime) > timerDelay) {
-    getSession();
+    (hasValidSession == false) ? (getSession()) : (makeHeartbeatRequest());
   }
 
   delay(5000);
   
 }
 
+void getSession(){
+    //Check WiFi connection status
     if(WiFi.status()== WL_CONNECTED){
       HTTPClient http;
 
@@ -84,9 +88,7 @@ void loop() {
         Serial.println(httpResponseCode);
         String payload = http.getString();
         Serial.println(payload);
-        if(httpResponseCode == 200){
-          makeHeartbeatRequest();
-        }
+        hasValidSession = (httpResponseCode == 200);
       }
       else {
         Serial.print("Error code: ");
@@ -106,7 +108,7 @@ void makeHeartbeatRequest(){
     if(WiFi.status()== WL_CONNECTED){
       HTTPClient http;
 
-      String serverPath = serverName;
+      String serverPath = updateBoxParamsEndpoint;
       
       // Your Domain name with URL path or IP address with path
       http.begin(serverPath.c_str());
