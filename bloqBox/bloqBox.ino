@@ -10,6 +10,14 @@ char digits[] = {'0','0','0','0'};
 const char* ssid = "The Misfits";
 const char* password = "";
 
+enum Event {
+  cancelPressed,
+  confirmPressed,
+  doorOpened,
+  doorClosed
+};
+
+
 //Your Domain name with URL path or IP address with path
 //String serverName = "https://api.ipify.org";
 String updateBoxParamsEndpoint = "https://lightning-box.vercel.app/api/session/set";
@@ -49,12 +57,12 @@ void configWifi(){
 }
 
 void loop() {
-  // INDEX = INDEX % 4;
-  // Wire.begin(INDEX + ADDR);  // Initialize I2C communication as a slave with address 0x50
-  // Wire.onReceive(receiveEvent);
-  // INDEX++;
-  // delay(100);
-  // Wire.end();
+  INDEX = INDEX % 4;
+  Wire.begin(INDEX + ADDR);  // Initialize I2C communication as a slave with address 0x50
+  Wire.onReceive(receiveEvent);
+  INDEX++;
+  delay(100);
+  Wire.end();
   // Serial.println("Current Total:");
   // Serial.println();
   // Serial.print(digits[3]);
@@ -63,10 +71,18 @@ void loop() {
   // Serial.print(digits[0]);
   
   if ((millis() - lastTime) > timerDelay) {
-    (hasValidSession == false) ? (getSession()) : (makeHeartbeatRequest());
+    //(hasValidSession == false) ? (getSession()) : (makeHeartbeatRequest());
+    getSession();
+    makePostRequest(confirmPressed);
+    Serial.println("Current Total:");
+    Serial.println();
+    Serial.print(digits[3]);
+    Serial.print(digits[1]);
+    Serial.print(digits[2]);
+    Serial.print(digits[0]);
   }
 
-  delay(5000);
+  //delay(5000);
   
 }
 
@@ -103,7 +119,7 @@ void getSession(){
     lastTime = millis();
 }
 
-void makeHeartbeatRequest(){
+void makePostRequest(Event event){
   //Check WiFi connection status
     if(WiFi.status()== WL_CONNECTED){
       HTTPClient http;
@@ -117,7 +133,31 @@ void makeHeartbeatRequest(){
       http.addHeader("Content-Type", "application/x-www-form-urlencoded");
 
       // Data to send with HTTP POST
-      String httpRequestData = "cuckBucks=69&message=Hello_World";
+      String httpRequestData;
+      int cuckBucks;
+      // Initialize random number generator
+      randomSeed(analogRead(0));
+
+      // Generate and print a random UUID
+      String uuid = generateUUID();
+
+      switch(event){
+        case cancelPressed:
+          httpRequestData = "event=cancelPressed&messageUUID=" + String(uuid);
+        break;
+        case confirmPressed:
+          cuckBucks = convertCuckBuckValue();
+          httpRequestData = "cuckBucks=" + String(cuckBucks) + "&event=confirmPressed&messageUUID=" + String(uuid);
+        break;
+        case doorOpened:
+          httpRequestData = "event=doorOpened&messageUUID=" + String(uuid);
+        break;
+        case doorClosed:
+          httpRequestData = "event=doorClosed&messageUUID=" + String(uuid);
+        break;
+      }
+
+      
 
       // Send HTTP POST request
       int httpResponseCode = http.POST(httpRequestData);
@@ -154,6 +194,39 @@ char lookupTable(uint8_t input) {
   }
   // Return a default value if the input value is not found
   return '-';
+}
+
+int convertCuckBuckValue() {
+  int value = 0;
+  int multipliers[] = {1, 100, 10, 1000};
+
+  for (int i = 0; i < 4; i++) {
+    if(digits[i] == '-'){
+      value += 0;
+    }
+    else{
+      value += (digits[i] - '0') * multipliers[i];
+    }
+  }
+
+  return value;
+}
+
+String generateUUID() {
+  char uuidString[37]; // UUID string buffer (36 characters + null terminator)
+
+  // Generate random bytes for UUID
+  uint8_t uuid[16];
+  for (int i = 0; i < 16; i++) {
+    uuid[i] = random(256);
+  }
+
+  // Format the UUID string
+  sprintf(uuidString, "%02X%02X%02X%02X-%02X%02X-%02X%02X-%02X%02X-%02X%02X%02X%02X%02X%02X",
+          uuid[0], uuid[1], uuid[2], uuid[3], uuid[4], uuid[5], uuid[6], uuid[7],
+          uuid[8], uuid[9], uuid[10], uuid[11], uuid[12], uuid[13], uuid[14], uuid[15]);
+
+  return String(uuidString);
 }
 
 void receiveEvent(int numBytes) {
