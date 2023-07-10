@@ -7,16 +7,49 @@ const int ADDR = 0x34;
 int INDEX = 0;
 char digits[] = {'0','0','0','0'};
 
+
 const char* ssid = "The Misfits";
 const char* password = "";
 
-enum Event {
+String generateUUID() {
+  // Initialize random number generator
+  randomSeed(analogRead(0));
+  char uuidString[37]; // UUID string buffer (36 characters + null terminator)
+
+  // Generate random bytes for UUID
+  uint8_t uuid[16];
+  for (int i = 0; i < 16; i++) {
+    uuid[i] = random(256);
+  }
+
+  // Format the UUID string
+  sprintf(uuidString, "%02X%02X%02X%02X-%02X%02X-%02X%02X-%02X%02X-%02X%02X%02X%02X%02X%02X",
+          uuid[0], uuid[1], uuid[2], uuid[3], uuid[4], uuid[5], uuid[6], uuid[7],
+          uuid[8], uuid[9], uuid[10], uuid[11], uuid[12], uuid[13], uuid[14], uuid[15]);
+
+  return String(uuidString);
+}
+
+enum EventType {
   cancelPressed,
   confirmPressed,
   doorOpened,
   doorClosed
 };
 
+struct EventData {
+  EventType eventType;
+  String UUID;
+  int cuckBucks;
+
+  EventData(EventType type) {
+    eventType = type;
+    UUID = generateUUID();
+    cuckBucks = -1;
+  }
+};
+
+void makePostRequest(EventData eventData);
 
 //Your Domain name with URL path or IP address with path
 //String serverName = "https://api.ipify.org";
@@ -73,7 +106,9 @@ void loop() {
   if ((millis() - lastTime) > timerDelay) {
     //(hasValidSession == false) ? (getSession()) : (makeHeartbeatRequest());
     getSession();
-    makePostRequest(confirmPressed);
+    EventData event = EventData(confirmPressed);
+    event.cuckBucks = convertCuckBuckValue();
+    makePostRequest(event);
     Serial.println("Current Total:");
     Serial.println();
     Serial.print(digits[3]);
@@ -119,7 +154,7 @@ void getSession(){
     lastTime = millis();
 }
 
-void makePostRequest(Event event){
+void makePostRequest(EventData eventData){
   //Check WiFi connection status
     if(WiFi.status()== WL_CONNECTED){
       HTTPClient http;
@@ -134,20 +169,13 @@ void makePostRequest(Event event){
 
       // Data to send with HTTP POST
       String httpRequestData;
-      int cuckBucks;
-      // Initialize random number generator
-      randomSeed(analogRead(0));
-
-      // Generate and print a random UUID
-      String uuid = generateUUID();
-
-      switch(event){
+      const String uuid = eventData.UUID;
+      switch(eventData.eventType){
         case cancelPressed:
           httpRequestData = "event=cancelPressed&messageUUID=" + String(uuid);
         break;
         case confirmPressed:
-          cuckBucks = convertCuckBuckValue();
-          httpRequestData = "cuckBucks=" + String(cuckBucks) + "&event=confirmPressed&messageUUID=" + String(uuid);
+          httpRequestData = "cuckBucks=" + String(eventData.cuckBucks) + "&event=confirmPressed&messageUUID=" + String(uuid);
         break;
         case doorOpened:
           httpRequestData = "event=doorOpened&messageUUID=" + String(uuid);
@@ -210,23 +238,6 @@ int convertCuckBuckValue() {
   }
 
   return value;
-}
-
-String generateUUID() {
-  char uuidString[37]; // UUID string buffer (36 characters + null terminator)
-
-  // Generate random bytes for UUID
-  uint8_t uuid[16];
-  for (int i = 0; i < 16; i++) {
-    uuid[i] = random(256);
-  }
-
-  // Format the UUID string
-  sprintf(uuidString, "%02X%02X%02X%02X-%02X%02X-%02X%02X-%02X%02X-%02X%02X%02X%02X%02X%02X",
-          uuid[0], uuid[1], uuid[2], uuid[3], uuid[4], uuid[5], uuid[6], uuid[7],
-          uuid[8], uuid[9], uuid[10], uuid[11], uuid[12], uuid[13], uuid[14], uuid[15]);
-
-  return String(uuidString);
 }
 
 void receiveEvent(int numBytes) {
