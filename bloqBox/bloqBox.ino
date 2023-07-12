@@ -34,7 +34,8 @@ enum EventType {
   cancelPressed,
   confirmPressed,
   doorOpened,
-  doorClosed
+  doorClosed,
+  NONE
 };
 
 struct EventData {
@@ -65,6 +66,9 @@ unsigned long lastTime = 0;
 //unsigned long timerDelay = 600000;
 // Set timer to 5 seconds (5000)
 unsigned long timerDelay = 5000;
+EventData eventArray[4] = {EventData(NONE),EventData(NONE),EventData(NONE),EventData(NONE)};
+int currentEventIndex = 0;
+
 
 WiFiClient wifiClient;
 //HttpClient httpClient(wifiClient, serverAddress, serverPort);
@@ -72,6 +76,12 @@ WiFiClient wifiClient;
 void setup() {
   Serial.begin(115200);
   configWifi();
+
+  eventArray[0] = EventData(cancelPressed);
+  eventArray[1] = EventData(confirmPressed);
+  eventArray[2] = EventData(doorOpened);
+  eventArray[3] = EventData(doorClosed);
+
 }
 
 
@@ -102,13 +112,19 @@ void loop() {
   // Serial.print(digits[1]);
   // Serial.print(digits[2]);
   // Serial.print(digits[0]);
-  
+  EventData event = EventData(confirmPressed);
+  EventData event2 = EventData(cancelPressed);
+  // eventArray[0] = event;
+  // eventArray[1] = event2;
+  // currentEventIndex = 1;
+
+
   if ((millis() - lastTime) > timerDelay) {
     //(hasValidSession == false) ? (getSession()) : (makeHeartbeatRequest());
     getSession();
-    EventData event = EventData(confirmPressed);
+    
     event.cuckBucks = convertCuckBuckValue();
-    makePostRequest(event);
+    makePostRequest(eventArray[3]);
     Serial.println("Current Total:");
     Serial.println();
     Serial.print(digits[3]);
