@@ -1,15 +1,23 @@
 #include <Wire.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
-
+#include "config.h"
 
 const int ADDR = 0x34;
 int INDEX = 0;
 char digits[] = {'0','0','0','0'};
 
+//Inputs/Output definitions
+const int lockPin = 32;
+const int doorSensorPin = 33;
+const int billCounterCtlPin = 34;
+const int ledPin = 35;
+const int cancelButtonPin = 16;
+const int confirmButtonPin = 17;
 
-const char* ssid = "The Misfits";
-const char* password = "";
+bool remoteLNURLisSet = false;
+bool remoteInvoiceIsPaid = false;
+bool remoteBalanceOK = false;
 
 String generateUUID() {
   // Initialize random number generator
@@ -38,6 +46,13 @@ enum EventType {
   NONE
 };
 
+enum SystemState {
+  awaitingLNURL,
+  awaitingDoorClose,
+  provisionalDeposit,
+  locked
+};
+
 struct EventData {
   EventType eventType;
   String UUID;
@@ -51,10 +66,11 @@ struct EventData {
 };
 
 void makePostRequest(EventData eventData);
+void setPinsForState(SystemState state);
 
 //Your Domain name with URL path or IP address with path
 //String serverName = "https://api.ipify.org";
-String updateBoxParamsEndpoint = "https://lightning-box.vercel.app/api/session/set";
+String updateBoxParamsEndpoint = "https://lightning-box-cmdruid.vercel.app/api/box";
 String getSessionEndpoint = "https://lightning-box.vercel.app/api/session/get";
 
 bool hasValidSession = false;
@@ -68,6 +84,7 @@ unsigned long lastTime = 0;
 unsigned long timerDelay = 5000;
 EventData eventArray[4] = {EventData(NONE),EventData(NONE),EventData(NONE),EventData(NONE)};
 int currentEventIndex = 0;
+SystemState currentState = awaitingLNURL;
 
 
 WiFiClient wifiClient;
@@ -76,6 +93,7 @@ WiFiClient wifiClient;
 void setup() {
   Serial.begin(115200);
   configWifi();
+  configurePins();
 
   eventArray[0] = EventData(cancelPressed);
   eventArray[1] = EventData(confirmPressed);
@@ -114,9 +132,6 @@ void loop() {
   // Serial.print(digits[0]);
   EventData event = EventData(confirmPressed);
   EventData event2 = EventData(cancelPressed);
-  // eventArray[0] = event;
-  // eventArray[1] = event2;
-  // currentEventIndex = 1;
 
 
   if ((millis() - lastTime) > timerDelay) {
@@ -170,6 +185,62 @@ void getSession(){
     lastTime = millis();
 }
 
+
+void updateState(){
+  const SystemState lastState = currentState;
+  switch(currentState){
+    case awaitingLNURL:
+      if (remoteLNURLisSet) {
+        currentState = awaitingDoorClose;
+      }
+      break;
+    case awaitingDoorClose:
+      //
+      if (digitalRead(cancelButtonPin) == LOW){//kick out on cancellation
+        currentState = awaitingLNURL;
+      }
+      else if (digitalRead(doorSensorPin) == LOW){//waiting for door closure
+        currentState = provisionalDeposit;
+      }
+      break;
+    case provisionalDeposit:
+      if (digitalRead(cancelButtonPin) == LOW){//waiting for
+        currentState = awaitingLNURL;
+      }
+      // else if digitalRead(confirmButton) == LOW && convertCuckBuckValue() > 0 && remoteBalanceOK == true{
+      //   currentState = locked;
+      // }
+      break;
+    case locked:
+      if(remoteInvoiceIsPaid == true){
+        currentState = awaitingLNURL;
+      }
+    break;
+  }
+
+  if(currentState != lastState){
+    setPinsForState(currentState);
+  }
+}
+
+void setPinsForState(SystemState state){
+  bool shouldPopLock = false;//TODO only use for states where we go from lock to unlock
+  switch(currentState){
+    case awaitingLNURL:
+      //digitalWrite(lockPin,HIGH)
+    break;
+    case awaitingDoorClose:
+
+    break;
+    case provisionalDeposit:
+
+    break;
+    case locked:
+
+    break;
+  }
+}
+
 void makePostRequest(EventData eventData){
   //Check WiFi connection status
     if(WiFi.status()== WL_CONNECTED){
@@ -179,9 +250,9 @@ void makePostRequest(EventData eventData){
       
       // Your Domain name with URL path or IP address with path
       http.begin(serverPath.c_str());
-      
       // Specify content-type header
-      http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+      http.addHeader("Content-Type", "application/json");
+      http.addHeader("token",api_token);
 
       // Data to send with HTTP POST
       String httpRequestData;
@@ -201,10 +272,10 @@ void makePostRequest(EventData eventData){
         break;
       }
 
-      
+      String payload = "{\"message\":\"hello world!\"}";
 
       // Send HTTP POST request
-      int httpResponseCode = http.POST(httpRequestData);
+      int httpResponseCode = http.POST(payload);
       
       if (httpResponseCode>0) {
         Serial.print("makeHeartbeatRequest HTTP Response code: ");
@@ -223,6 +294,17 @@ void makePostRequest(EventData eventData){
       Serial.println("WiFi Disconnected");
     }
     lastTime = millis();
+}
+
+
+void configurePins(){
+  pinMode(ledPin, OUTPUT);
+  pinMode(billCounterCtlPin, OUTPUT);
+  pinMode(lockPin, OUTPUT);
+
+  pinMode(cancelButtonPin, INPUT);
+  pinMode(confirmButtonPin, INPUT);
+  pinMode(doorSensorPin, INPUT);
 }
 
 char lookupTable(uint8_t input) {
