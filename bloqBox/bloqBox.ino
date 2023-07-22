@@ -10,33 +10,14 @@ char digits[] = {'0','0','0','0'};
 //Inputs/Output definitions
 const int lockPin = 32;
 const int doorSensorPin = 33;
-const int billCounterCtlPin = 34;
-const int ledPin = 35;
+const int billCounterCtlPin = 32;
+const int ledPin = 27;
 const int cancelButtonPin = 16;
 const int confirmButtonPin = 17;
 
 bool remoteLNURLisSet = false;
 bool remoteInvoiceIsPaid = false;
 bool remoteBalanceOK = false;
-
-String generateUUID() {
-  // Initialize random number generator
-  randomSeed(analogRead(0));
-  char uuidString[37]; // UUID string buffer (36 characters + null terminator)
-
-  // Generate random bytes for UUID
-  uint8_t uuid[16];
-  for (int i = 0; i < 16; i++) {
-    uuid[i] = random(256);
-  }
-
-  // Format the UUID string
-  sprintf(uuidString, "%02X%02X%02X%02X-%02X%02X-%02X%02X-%02X%02X-%02X%02X%02X%02X%02X%02X",
-          uuid[0], uuid[1], uuid[2], uuid[3], uuid[4], uuid[5], uuid[6], uuid[7],
-          uuid[8], uuid[9], uuid[10], uuid[11], uuid[12], uuid[13], uuid[14], uuid[15]);
-
-  return String(uuidString);
-}
 
 enum SystemState {
   awaitingLNURL,
