@@ -10,7 +10,7 @@ char digits[] = {'0','0','0','0'};
 //Inputs/Output definitions
 const int lockPin = 32;
 const int doorSensorPin = 33;
-const int billCounterCtlPin = 32;
+const int billCounterCtlPin = 26;
 const int ledPin = 27;
 const int cancelButtonPin = 16;
 const int confirmButtonPin = 17;
@@ -18,6 +18,7 @@ const int confirmButtonPin = 17;
 bool remoteLNURLisSet = false;
 bool remoteInvoiceIsPaid = false;
 bool remoteBalanceOK = false;
+bool LED_blink_flipflop = false;
 
 enum SystemState {
   awaitingLNURL,
@@ -69,6 +70,7 @@ void configWifi(){
   Serial.println();
   Serial.print("Connected to WiFi. IP Address: ");
   Serial.println(WiFi.localIP());
+
 }
 
 void loop() {
@@ -176,17 +178,31 @@ void setPinsForState(SystemState state){
   bool shouldPopLock = false;//TODO only use for states where we go from lock to unlock
   switch(currentState){
     case awaitingLNURL:
-      //digitalWrite(lockPin,HIGH)
+      digitalWrite(lockPin,LOW);
+      digitalWrite(billCounterCtlPin,HIGH);
+      digitalWrite(ledPin,LOW);
     break;
     case awaitingDoorClose:
-
+      digitalWrite(lockPin,LOW);
+      digitalWrite(billCounterCtlPin,HIGH);
+      digitalWrite(ledPin,LOW);
     break;
     case provisionalDeposit:
-
+      digitalWrite(billCounterCtlPin,HIGH);
+      LED_blink_flipflop = !LED_blink_flipflop;
+      digitalWrite(ledPin,LED_blink_flipflop);
+      
     break;
     case locked:
-
+    digitalWrite(billCounterCtlPin,LOW);
+    digitalWrite(ledPin,HIGH);
     break;
+  }
+
+  if (shouldPopLock == true){
+    digitalWrite(lockPin,HIGH);
+    delay(2000);
+    digitalWrite(lockPin,LOW);
   }
 }
 
