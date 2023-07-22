@@ -38,14 +38,6 @@ String generateUUID() {
   return String(uuidString);
 }
 
-enum EventType {
-  cancelPressed,
-  confirmPressed,
-  doorOpened,
-  doorClosed,
-  NONE
-};
-
 enum SystemState {
   awaitingLNURL,
   awaitingDoorClose,
@@ -53,19 +45,6 @@ enum SystemState {
   locked
 };
 
-struct EventData {
-  EventType eventType;
-  String UUID;
-  int cuckBucks;
-
-  EventData(EventType type) {
-    eventType = type;
-    UUID = generateUUID();
-    cuckBucks = -1;
-  }
-};
-
-void makePostRequest(EventData eventData);
 void setPinsForState(SystemState state);
 
 //Your Domain name with URL path or IP address with path
@@ -82,7 +61,6 @@ unsigned long lastTime = 0;
 //unsigned long timerDelay = 600000;
 // Set timer to 5 seconds (5000)
 unsigned long timerDelay = 5000;
-EventData eventArray[4] = {EventData(NONE),EventData(NONE),EventData(NONE),EventData(NONE)};
 int currentEventIndex = 0;
 SystemState currentState = awaitingLNURL;
 
@@ -94,11 +72,6 @@ void setup() {
   Serial.begin(115200);
   configWifi();
   configurePins();
-
-  eventArray[0] = EventData(cancelPressed);
-  eventArray[1] = EventData(confirmPressed);
-  eventArray[2] = EventData(doorOpened);
-  eventArray[3] = EventData(doorClosed);
 
 }
 
@@ -130,16 +103,11 @@ void loop() {
   // Serial.print(digits[1]);
   // Serial.print(digits[2]);
   // Serial.print(digits[0]);
-  EventData event = EventData(confirmPressed);
-  EventData event2 = EventData(cancelPressed);
 
 
   if ((millis() - lastTime) > timerDelay) {
     //(hasValidSession == false) ? (getSession()) : (makeHeartbeatRequest());
     getSession();
-    
-    event.cuckBucks = convertCuckBuckValue();
-    makePostRequest(eventArray[3]);
     Serial.println("Current Total:");
     Serial.println();
     Serial.print(digits[3]);
@@ -240,62 +208,6 @@ void setPinsForState(SystemState state){
     break;
   }
 }
-
-void makePostRequest(EventData eventData){
-  //Check WiFi connection status
-    if(WiFi.status()== WL_CONNECTED){
-      HTTPClient http;
-
-      String serverPath = updateBoxParamsEndpoint;
-      
-      // Your Domain name with URL path or IP address with path
-      http.begin(serverPath.c_str());
-      // Specify content-type header
-      http.addHeader("Content-Type", "application/json");
-      http.addHeader("token",api_token);
-
-      // Data to send with HTTP POST
-      String httpRequestData;
-      const String uuid = eventData.UUID;
-      switch(eventData.eventType){
-        case cancelPressed:
-          httpRequestData = "event=cancelPressed&messageUUID=" + String(uuid);
-        break;
-        case confirmPressed:
-          httpRequestData = "cuckBucks=" + String(eventData.cuckBucks) + "&event=confirmPressed&messageUUID=" + String(uuid);
-        break;
-        case doorOpened:
-          httpRequestData = "event=doorOpened&messageUUID=" + String(uuid);
-        break;
-        case doorClosed:
-          httpRequestData = "event=doorClosed&messageUUID=" + String(uuid);
-        break;
-      }
-
-      String payload = "{\"message\":\"hello world!\"}";
-
-      // Send HTTP POST request
-      int httpResponseCode = http.POST(payload);
-      
-      if (httpResponseCode>0) {
-        Serial.print("makeHeartbeatRequest HTTP Response code: ");
-        Serial.println(httpResponseCode);
-        String payload = http.getString();
-        Serial.println(payload);
-      }
-      else {
-        Serial.print("Error code: ");
-        Serial.println(httpResponseCode);
-      }
-      // Free resources
-      http.end();
-    }
-    else {
-      Serial.println("WiFi Disconnected");
-    }
-    lastTime = millis();
-}
-
 
 void configurePins(){
   pinMode(ledPin, OUTPUT);
