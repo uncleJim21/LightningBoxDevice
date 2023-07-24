@@ -10,9 +10,9 @@ int INDEX = 0;
 char digits[] = {'0','0','0','0'};
 
 //Inputs/Output definitions
-const int lockPin = 32;
-const int doorSensorPin = 33;
-const int billCounterCtlPin = 26;
+const int lockPin = 23;
+const int doorSensorPin = 19;
+const int billCounterCtlPin = 18;
 const int ledPin = 27;
 const int cancelButtonPin = 16;
 const int confirmButtonPin = 17;
@@ -42,9 +42,10 @@ bool hasValidSession = false;
 // milliseconds, will quickly become a bigger number than can be stored in an int.
 unsigned long lastTime = 0;
 // Timer set to 10 minutes (600000)
-//unsigned long timerDelay = 600000;
+//unsigned long longLoopPeriod = 600000;
 // Set timer to 5 seconds (5000)
-unsigned long timerDelay = 5000;
+unsigned long longLoopPeriod = 5000;
+unsigned long shortLoopPeriod = 100;
 int currentEventIndex = 0;
 SystemState currentState = awaitingLNURL;
 
@@ -90,7 +91,7 @@ void loop() {
   // Serial.print(digits[0]);
 
 
-  if ((millis() - lastTime) > timerDelay) {
+  if ((millis() - lastTime) > longLoopPeriod) {
     //(hasValidSession == false) ? (getSession()) : (makeHeartbeatRequest());
     makePostRequest();
     Serial.println("Current Total:");
@@ -100,6 +101,13 @@ void loop() {
     Serial.print(digits[2]);
     Serial.print(digits[0]);
   }
+
+  if ((millis() - lastTime) > shortLoopPeriod) {
+    //(hasValidSession == false) ? (getSession()) : (makeHeartbeatRequest());
+    updateState();
+  }
+
+
 
   //delay(5000);
   
@@ -121,6 +129,8 @@ String getStateString() {
 }
 
 
+#include <ArduinoJson.h>
+
 void makePostRequest(){
   // Check WiFi connection status
   if (WiFi.status() == WL_CONNECTED) {
@@ -134,8 +144,8 @@ void makePostRequest(){
     http.addHeader("Content-Type", "application/json");
     http.addHeader("token", api_token);
 
-    // Create a JSON document
-    StaticJsonDocument<256> jsonDoc;
+    // Create a JSON document to hold the response data
+    DynamicJsonDocument jsonDoc(1024); // Adjust the buffer size as per your response data size
 
     // Data to send with HTTP POST
     const int boxValue = convertCuckBuckValue();
@@ -157,8 +167,26 @@ void makePostRequest(){
     if (httpResponseCode > 0) {
       Serial.print("makeHeartbeatRequest HTTP Response code: ");
       Serial.println(httpResponseCode);
-      String responsePayload = http.getString();
-      Serial.println(responsePayload);
+      
+      // Parse the JSON response received from the server
+      DeserializationError error = deserializeJson(jsonDoc, http.getString());
+      if (error) {
+        Serial.print("JSON parsing failed: ");
+        Serial.println(error.c_str());
+      } else {
+        // Extract the boolean values of amount_ok, addr_ok, and is_paid
+        remoteBalanceOK = jsonDoc["amount_ok"];
+        remoteLNURLisSet = jsonDoc["addr_ok"];
+        remoteInvoiceIsPaid = jsonDoc["is_paid"];
+
+        // Print the extracted boolean values to the Serial Monitor
+        Serial.print("amount_ok: ");
+        Serial.println(remoteBalanceOK);
+        Serial.print("addr_ok: ");
+        Serial.println(remoteLNURLisSet);
+        Serial.print("is_paid: ");
+        Serial.println(remoteInvoiceIsPaid);
+      }
     }
     else {
       Serial.print("Error code: ");
@@ -172,6 +200,7 @@ void makePostRequest(){
   }
   lastTime = millis();
 }
+
 
 
 void getSession(){
@@ -229,9 +258,9 @@ void updateState(){
       if (digitalRead(cancelButtonPin) == LOW){//waiting for
         currentState = awaitingLNURL;
       }
-      // else if digitalRead(confirmButton) == LOW && convertCuckBuckValue() > 0 && remoteBalanceOK == true{
-      //   currentState = locked;
-      // }
+      else if (digitalRead(confirmButtonPin) == LOW && remoteBalanceOK == true){
+        currentState = locked;
+      }
       break;
     case locked:
       if(remoteInvoiceIsPaid == true){
