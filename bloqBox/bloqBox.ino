@@ -11,11 +11,11 @@ char digits[] = {'0','0','0','0'};
 
 //Inputs/Output definitions
 const int lockPin = 23;
-const int doorSensorPin = 19;
-const int billCounterCtlPin = 18;
+const int doorSensorPin = 25;//
+const int billCounterCtlPin = 18;//
 const int ledPin = 27;
-const int cancelButtonPin = 16;
-const int confirmButtonPin = 17;
+const int cancelButtonPin = 16;//
+const int confirmButtonPin = 17;//
 
 bool remoteLNURLisSet = false;
 bool remoteInvoiceIsPaid = false;
@@ -44,8 +44,8 @@ unsigned long lastTime = 0;
 // Timer set to 10 minutes (600000)
 //unsigned long longLoopPeriod = 600000;
 // Set timer to 5 seconds (5000)
-unsigned long longLoopPeriod = 5000;
-unsigned long shortLoopPeriod = 100;
+unsigned long longLoopPeriod = 2000;
+unsigned long shortLoopPeriod = 25;
 int currentEventIndex = 0;
 SystemState currentState = awaitingLNURL;
 
@@ -83,12 +83,6 @@ void loop() {
   INDEX++;
   delay(100);
   Wire.end();
-  // Serial.println("Current Total:");
-  // Serial.println();
-  // Serial.print(digits[3]);
-  // Serial.print(digits[1]);
-  // Serial.print(digits[2]);
-  // Serial.print(digits[0]);
 
 
   if ((millis() - lastTime) > longLoopPeriod) {
@@ -103,7 +97,6 @@ void loop() {
   }
 
   if ((millis() - lastTime) > shortLoopPeriod) {
-    //(hasValidSession == false) ? (getSession()) : (makeHeartbeatRequest());
     updateState();
   }
 
@@ -192,6 +185,14 @@ void makePostRequest(){
       Serial.print("Error code: ");
       Serial.println(httpResponseCode);
     }
+    Serial.print("confirmButton: ");
+    Serial.println(digitalRead(confirmButtonPin));
+    Serial.print("cancelButton: ");
+    Serial.println(digitalRead(cancelButtonPin));
+    Serial.print("doorSensorPin: ");
+    Serial.println(digitalRead(doorSensorPin));
+    Serial.print("currentState: ");
+    Serial.println(getStateString());
     // Free resources
     http.end();
   }
@@ -239,6 +240,7 @@ void getSession(){
 
 void updateState(){
   const SystemState lastState = currentState;
+  bool shouldPopLock = false;
   switch(currentState){
     case awaitingLNURL:
       if (remoteLNURLisSet) {
@@ -249,6 +251,7 @@ void updateState(){
       //
       if (digitalRead(cancelButtonPin) == LOW){//kick out on cancellation
         currentState = awaitingLNURL;
+        shouldPopLock = true;
       }
       else if (digitalRead(doorSensorPin) == LOW){//waiting for door closure
         currentState = provisionalDeposit;
@@ -257,6 +260,7 @@ void updateState(){
     case provisionalDeposit:
       if (digitalRead(cancelButtonPin) == LOW){//waiting for
         currentState = awaitingLNURL;
+        shouldPopLock = true;
       }
       else if (digitalRead(confirmButtonPin) == LOW && remoteBalanceOK == true){
         currentState = locked;
@@ -265,26 +269,35 @@ void updateState(){
     case locked:
       if(remoteInvoiceIsPaid == true){
         currentState = awaitingLNURL;
+        remoteLNURLisSet = false;
+        shouldPopLock = true;
       }
     break;
   }
 
   if(currentState != lastState){
     setPinsForState(currentState);
+    if (shouldPopLock == true){//pop the lock once and only once
+      digitalWrite(lockPin,HIGH);
+      delay(2000);
+      digitalWrite(lockPin,LOW);
+      for (int i = 0; i < 4; i++) {
+        digits[i] = 0;
+      }
+    }
   }
 }
 
 void setPinsForState(SystemState state){
-  bool shouldPopLock = false;//TODO only use for states where we go from lock to unlock
   switch(currentState){
     case awaitingLNURL:
       digitalWrite(lockPin,LOW);
-      digitalWrite(billCounterCtlPin,HIGH);
+      digitalWrite(billCounterCtlPin,LOW);
       digitalWrite(ledPin,LOW);
     break;
     case awaitingDoorClose:
       digitalWrite(lockPin,LOW);
-      digitalWrite(billCounterCtlPin,HIGH);
+      digitalWrite(billCounterCtlPin,LOW);
       digitalWrite(ledPin,LOW);
     break;
     case provisionalDeposit:
@@ -297,12 +310,6 @@ void setPinsForState(SystemState state){
     digitalWrite(billCounterCtlPin,LOW);
     digitalWrite(ledPin,HIGH);
     break;
-  }
-
-  if (shouldPopLock == true){
-    digitalWrite(lockPin,HIGH);
-    delay(2000);
-    digitalWrite(lockPin,LOW);
   }
 }
 
